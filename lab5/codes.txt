@@ -1,0 +1,222 @@
+`timescale 1ns / 1ps
+//////////////////////////////////////////////////////////////////////////////////
+// Company: 
+// Engineer: 
+// 
+// Create Date: 11/14/2023 06:41:26 PM
+// Design Name: 
+// Module Name: traffic_output_logic
+// Project Name: 
+// Target Devices: 
+// Tool Versions: 
+// Description: 
+// 
+// Dependencies: 
+// 
+// Revision:
+// Revision 0.01 - File Created
+// Additional Comments:
+// 
+//////////////////////////////////////////////////////////////////////////////////
+
+
+module traffic_output_logic(
+        input [2:0] N,
+        output logic [2:0] lA, [2:0] lB
+    );
+    
+    always_comb begin
+        lA[2] = N[2] ^ N[1] | N[1] & ~N[0];
+        lA[1] = N[2] ^ N[1] | ~N[0];
+        lA[0] = 1;
+        
+        lB[2] = ~(N[2] ^ N[1]) | ~N[2] & ~N[0];
+        lB[1] = ~(N[2] ^ N[1]) | ~N[0];
+        lB[0] = 1;
+    end
+    
+endmodule
+`timescale 1ns / 1ps
+//////////////////////////////////////////////////////////////////////////////////
+// Company: 
+// Engineer: 
+// 
+// Create Date: 11/14/2023 05:26:07 PM
+// Design Name: 
+// Module Name: traffic_state_logic
+// Project Name: 
+// Target Devices: 
+// Tool Versions: 
+// Description: 
+// 
+// Dependencies: 
+// 
+// Revision:
+// Revision 0.01 - File Created
+// Additional Comments:
+// 
+//////////////////////////////////////////////////////////////////////////////////
+
+
+module traffic_state_logic(
+    input [2:0] N,
+    input sA,
+    input sB,
+    output logic [2:0] N_prime
+    );
+    
+    always_comb begin
+        N_prime[2] = N[2] & ~N[0] | N[2] & ~N[1] | ~N[2] & N[1] & N[0];
+        N_prime[1] = N[1] ^ N[0];
+        N_prime[0] = N[1] & ~N[0] | ~N[2] & ~N[1] & ~N[0] & ~sA | N[2] & ~N[1] & ~N[0] & ~sB;
+    end
+    
+endmodule
+`timescale 1ns / 1ps
+//////////////////////////////////////////////////////////////////////////////////
+// Company: 
+// Engineer: 
+// 
+// Create Date: 11/14/2023 05:22:18 PM
+// Design Name: 
+// Module Name: register3bit
+// Project Name: 
+// Target Devices: 
+// Tool Versions: 
+// Description: 
+// 
+// Dependencies: 
+// 
+// Revision:
+// Revision 0.01 - File Created
+// Additional Comments:
+// 
+//////////////////////////////////////////////////////////////////////////////////
+
+
+module register3bit(
+    input clock, reset,
+    input [2:0] N_prime,
+    output logic [2:0] N
+    );
+    
+    always_ff @(posedge clock) begin
+        if (reset) N <= 3'b000;
+        else N <= N_prime;
+    end
+    
+endmodule
+`timescale 1ns / 1ps
+//////////////////////////////////////////////////////////////////////////////////
+// Company: 
+// Engineer: 
+// 
+// Create Date: 11/14/2023 01:56:26 PM
+// Design Name: 
+// Module Name: traffic_fsm
+// Project Name: 
+// Target Devices: 
+// Tool Versions: 
+// Description: 
+// 
+// Dependencies: 
+// 
+// Revision:
+// Revision 0.01 - File Created
+// Additional Comments:
+// 
+//////////////////////////////////////////////////////////////////////////////////
+
+
+module traffic_fsm(
+        input logic clock, reset, sA, sB,
+        output logic [2:0] lA, [2:0] lB
+    );
+    
+    logic [2:0] N;
+    logic [2:0] N_prime;
+    
+    register3bit register (clock, reset, N_prime, N);
+    
+    traffic_state_logic statelogic (N, sA, sB, N_prime);
+    
+    traffic_output_logic outputlogic (N, lA, lB);
+    
+endmodule
+`timescale 1ns / 1ps
+//////////////////////////////////////////////////////////////////////////////////
+// Company: 
+// Engineer: 
+// 
+// Create Date: 11/20/2023 06:02:51 PM
+// Design Name: 
+// Module Name: slower_clock
+// Project Name: 
+// Target Devices: 
+// Tool Versions: 
+// Description: 
+// 
+// Dependencies: 
+// 
+// Revision:
+// Revision 0.01 - File Created
+// Additional Comments:
+// 
+//////////////////////////////////////////////////////////////////////////////////
+
+
+module slower_clock(
+    input clock_in,
+    output reg clock_out
+    );
+    
+    reg [31:0] count;
+             
+    always @ (posedge(clock_in))
+    begin
+        if (count == 100000000)
+            count <= 32'b0;
+        else
+            count <= count + 1;
+    end
+    
+    always @ (posedge(clock_in))
+    begin
+        if (count == 100000000)
+            clock_out <= ~clock_out;
+        else
+            clock_out <= clock_out;
+    end
+    
+endmodule
+`timescale 1ns / 1ps
+//////////////////////////////////////////////////////////////////////////////////
+// Company: 
+// Engineer: 
+// 
+// Create Date: 11/14/2023 01:55:09 PM
+// Design Name: 
+// Module Name: traffic_fsm_slower
+// Project Name: 
+// Target Devices: 
+// Tool Versions: 
+// Description: 
+// 
+// Dependencies: 
+// 
+// Revision:
+// Revision 0.01 - File Created
+// Additional Comments:
+// 
+//////////////////////////////////////////////////////////////////////////////////
+
+
+module traffic_fsm_slower(
+        input logic CLK100MHZ, reset, sA, sB,
+        output logic [2:0] lA, [2:0] lB
+    );
+    wire slowclock;
+    slower_clock sc (CLK100MHZ, slowclock);
+    traffic_fsm fsm (slowclock, reset, sA, sB, lA, lB);
+endmodule
+
